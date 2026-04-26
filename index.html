@@ -148,7 +148,7 @@
                 <img src="pp_product.png" alt="PP" style="width:100%; height:180px; object-fit:cover; border-radius:12px;">
             </div>
             <div style="margin-top:16px;">
-                <div style="font-weight:700; font-size:16px;">聚丙烯 PP </div>
+                <div style="font-weight:700; font-size:16px;">聚丙烯 PP (T30S)</div>
                 <div class="view-detail" style="color:var(--primary); font-size:13px; margin-top:8px; font-weight:500;">查看详情 →</div>
             </div>
         </div>
@@ -158,7 +158,7 @@
                 <img src="pe_product.png" alt="PE" style="width:100%; height:180px; object-fit:cover; border-radius:12px;">
             </div>
             <div style="margin-top:16px;">
-                <div style="font-weight:700; font-size:16px;">聚乙烯 PE </div>
+                <div style="font-weight:700; font-size:16px;">聚乙烯 LDPE (2426H)</div>
                 <div class="view-detail" style="color:var(--primary); font-size:13px; margin-top:8px; font-weight:500;">查看详情 →</div>
             </div>
         </div>
@@ -168,7 +168,7 @@
         <section id="calc" class="page">
     <div class="card" style="text-align:center;">
         <h3>电子合同</h3>
-        <button class="btn btn-primary" onclick="downloadFile()">📄 下载合同文件</button>
+        <button class="btn btn-primary" onclick="downloadFile()">📄 下载报价文件</button>
     </div>
     <img src="contract(1).png" alt=""width="788"height="1116">
     <img src="contract(2).png" alt=""width="788"height="1116">
@@ -384,6 +384,76 @@ function closeModal() {
             runCalc();
             document.querySelectorAll('input').forEach(i => i.addEventListener('input', runCalc));
         };
+
+        // AI 助手控制
+function toggleAI() {
+    const panel = document.getElementById('ai-panel');
+    panel.style.display = panel.style.display === 'none' ? 'flex' : 'none';
+}
+
+function askAI() {
+    const input = document.getElementById('ai-input');
+    const msgContainer = document.getElementById('ai-messages');
+    const query = input.value.trim();
+    if (!query) return;
+
+    // 添加用户消息
+    appendMessage('user', query);
+    input.value = '';
+
+    // 模拟 AI 思考延迟
+    setTimeout(() => {
+        const response = getAIResponse(query);
+        appendMessage('bot', response);
+    }, 600);
+}
+
+function appendMessage(role, text) {
+    const msgContainer = document.getElementById('ai-messages');
+    const div = document.createElement('div');
+    const isUser = role === 'user';
+    
+    div.style.cssText = `
+        padding: 10px 14px;
+        border-radius: 12px;
+        max-width: 85%;
+        font-size: 14px;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+        line-height: 1.5;
+        ${isUser ? 
+            'align-self: flex-end; background: var(--primary); color: white;' : 
+            'align-self: flex-start; background: white; color: var(--text-main);'}
+    `;
+    div.innerHTML = text;
+    msgContainer.appendChild(div);
+    msgContainer.scrollTop = msgContainer.scrollHeight;
+}
+
+// 模拟人工智能逻辑 (可接入 Coze API 或其他大模型)
+function getAIResponse(query) {
+    const q = query.toLowerCase();
+    
+    // 针对你项目背景的预设回复
+    if (q.includes("pp") || q.includes("聚丙烯")) {
+        return "<b>PP (聚丙烯)</b> 广泛应用于包装和医疗领域。当前系统内 T30S 的基准价约为 8420 元/吨。";
+    }
+    if (q.includes("风险") || q.includes("系数") || q.includes("lambda")) {
+        return "风险系数 $\lambda$ 用于计算基差影响。根据您的模型，最终价格计算公式为：<br>$(Base + 220) \\times 1.13 + (Base \\times \\lambda \\times 4.2 \\times 0.000056)$";
+    }
+    if (q.includes("合同") || q.includes("报价")) {
+        return "您可以在“电子合同”页面下载最新的报价单 PDF。如需签署，请前往“客户窗口”。";
+    }
+    if (q.includes("你好") || q.includes("在吗")) {
+        return "你好！我是智能助手，有什么可以帮您的？我可以帮您分析行情或解释定价逻辑。";
+    }
+    
+    return "这是一个很好的问题。作为您的数字助理，建议您结合“风险分析”页面的实时数据进行决策，或者询问我关于具体产品（PP/PE）的信息。";
+}
+
+// 绑定回车键
+document.getElementById('ai-input')?.addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') askAI();
+});
     </script>
     <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
 
@@ -395,6 +465,28 @@ function closeModal() {
         </div>
         <div id="modalContent" style="line-height:1.6; font-size:14px; color:var(--text-main);"></div>
         <button class="btn btn-primary" style="width:100%; margin-top:20px; justify-content:center;" onclick="closeModal()">了解了</button>
+    </div>
+</div>
+
+<div id="ai-assistant" style="position: fixed; bottom: 30px; right: 30px; z-index: 1000;">
+    <div id="ai-ball" onclick="toggleAI()" style="width: 60px; height: 60px; background: var(--primary); border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; box-shadow: 0 8px 24px rgba(37,99,235,0.4); transition: transform 0.3s;">
+        <span style="font-size: 30px;">🤖</span>
+    </div>
+
+    <div id="ai-panel" style="display: none; position: absolute; bottom: 80px; right: 0; width: 350px; height: 500px; background: var(--bg-card); border-radius: 20px; box-shadow: var(--shadow); border: 1px solid var(--border); flex-direction: column; overflow: hidden;">
+        <div style="padding: 16px; background: var(--primary); color: white; font-weight: 600; display: flex; justify-content: space-between;">
+            <span>智控助手</span>
+            <span onclick="toggleAI()" style="cursor:pointer;">✕</span>
+        </div>
+        <div id="ai-messages" style="flex: 1; padding: 16px; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; background: var(--bg-body);">
+            <div style="background: white; padding: 10px 14px; border-radius: 12px; max-width: 85%; font-size: 14px; align-self: flex-start; box-shadow: 0 2px 5px rgba(0,0,0,0.05);">
+                您好！我是智能助理。您可以问我关于 **PP/PE 产品特性**、**套期保值逻辑** 或 **平台操作** 的问题。
+            </div>
+        </div>
+        <div style="padding: 16px; border-top: 1px solid var(--border); display: flex; gap: 8px;">
+            <input id="ai-input" type="text" placeholder="输入问题..." style="flex: 1; padding: 8px 12px; border-radius: 8px; border: 1px solid var(--border); outline: none;">
+            <button onclick="askAI()" style="background: var(--primary); color: white; border: none; padding: 8px 16px; border-radius: 8px; cursor: pointer;">发送</button>
+        </div>
     </div>
 </div>
 </body>
