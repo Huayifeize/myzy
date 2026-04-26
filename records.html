@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>企业测算记录查询</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;font-family:"Microsoft Yahei",Arial,sans-serif;}
+body{background-color:#e6f4ff;padding:20px 0;}
+.container{max-width:1200px;margin:0 auto;background:#fff;border-radius:12px;box-shadow:0 2px 12px rgba(0,0,0,0.06);padding:30px;}
+.header{text-align:center;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e0edff;}
+.header h2{color:#0f5fa8;font-size:26px;}
+.record-table{width:100%;border-collapse:collapse;}
+.record-table th, .record-table td{padding:12px;text-align:center;border-bottom:1px solid #f0f7ff;}
+.record-table th{background-color:#f5faff;color:#0f5fa8;font-weight:500;}
+.empty-tip{text-align:center;padding:40px;color:#999;font-size:16px;}
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="header">
+    <h2>企业共享客户测算记录</h2>
+  </div>
+
+  <table class="record-table">
+    <thead>
+      <tr>
+        <th>时间</th>
+        <th>收货地址</th>
+        <th>产品</th>
+        <th>距离(km)</th>
+        <th>推荐点价价格</th>
+        <th>行权价格</th>
+        <th>平仓下限</th>
+      </tr>
+    </thead>
+    <tbody id="recordBody"></tbody>
+  </table>
+</div>
+
+<script>
+// 读取本地记录
+function getRecords(){
+  let records = localStorage.getItem("calcRecords");
+  return records ? JSON.parse(records) : [];
+}
+
+function renderRecords(){
+  let records = getRecords();
+  let html = "";
+  if(!records.length){
+    html = `<tr><td colspan="7" class="empty-tip">暂无测算记录，请先在客户页完成测算</td></tr>`;
+  }else{
+    records.forEach(r=>{
+      html += `
+        <tr>
+          <td>${r.time}</td>
+          <td>${r.address}</td>
+          <td>${r.product}</td>
+          <td>${r.distance}</td>
+          <td>${r.pointPrice}</td>
+          <td>${r.exercisePrice}</td>
+          <td>${r.closeMin}</td>
+        </tr>
+      `;
+    });
+  }
+  document.getElementById("recordBody").innerHTML = html;
+}
+
+// 页面加载时自动渲染
+renderRecords();
+</script>
+</body>
+</html>

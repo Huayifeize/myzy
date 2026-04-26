@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>期货价格预测系统（CSV文件导入版）</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: "Microsoft Yahei", sans-serif;
+        }
+        body {
+            background-color: #f0f6ff;
+            padding: 20px;
+        }
+        .wrap {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: #fff;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 0 15px #dce4f0;
+        }
+        h2 {
+            text-align: center;
+            color: #234983;
+            margin-bottom: 20px;
+        }
+        .formula {
+            background: #e8f2ff;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 15px 0;
+            color: #183b6e;
+            text-align: center;
+            font-weight: 500;
+            font-size: 16px;
+            line-height: 1.6;
+        }
+        .input-box {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 10px;
+            margin: 10px 0;
+        }
+        input {
+            padding: 10px;
+            border: 1px solid #bcd0e8;
+            border-radius: 6px;
+            outline: none;
+            font-size: 15px;
+        }
+        .btn-group {
+            margin: 10px 0;
+        }
+        button {
+            padding: 10px 20px;
+            background: #2b78d4;
+            color: #fff;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            margin-right: 10px;
+            font-size: 15px;
+        }
+        button:hover {
+            background: #2063b9;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 15px 0;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 10px;
+            text-align: center;
+        }
+        th {
+            background: #3b86d8;
+            color: #fff;
+        }
+        .title-line {
+            font-size: 18px;
+            color: #234983;
+            margin: 25px 0 10px;
+            font-weight: bold;
+        }
+        .file-area {
+            background: #eef5ff;
+            padding: 15px;
+            border-radius: 6px;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="wrap">
+        <h2>期货价格预测系统（CSV文件导入版）</h2>
+
+        <div class="formula">
+            预测公式：<br>
+            期货价格 = 156.8819 + 0.1237×现价 + 0.8487×上一期期价 − 0.044×煤炭价 + 1.165×原油价
+        </div>
+
+        <!-- 文件导入区 -->
+        <div class="title-line">📥 批量导入历史数据（上传CSV文件）</div>
+        <div class="file-area">
+            <input type="file" id="csvFile" accept=".csv">
+            <button onclick="importCSV()">上传并导入文件</button>
+            <p style="font-size:13px;color:#666;margin-top:8px;">
+                CSV文件格式要求：每行顺序为【日期,现价,上日期价,原油价,煤炭价】，逗号分隔，支持表头
+            </p>
+        </div>
+
+        <!-- 单条数据录入区 -->
+        <div class="title-line">✏️ 单条数据录入</div>
+        <div class="input-box">
+            <input type="text" id="date" placeholder="日期（如2026/03/06）">
+            <input type="number" step="0.01" id="priceNow" placeholder="现价">
+            <input type="number" step="0.01" id="priceFutureLast" placeholder="上日期价">
+            <input type="number" step="0.01" id="oilPrice" placeholder="原油价格">
+            <input type="number" step="0.01" id="coalPrice" placeholder="煤炭价格">
+        </div>
+        <div class="btn-group">
+            <button onclick="addData()">添加当日数据</button>
+            <button onclick="calcForecast()">生成未来7天预测</button>
+            <button onclick="clearAll()">清空全部数据</button>
+        </div>
+
+        <!-- 历史数据表格 -->
+        <div class="title-line">📋 历史数据记录</div>
+        <table>
+            <thead>
+                <tr>
+                    <th>日期</th>
+                    <th>现价</th>
+                    <th>上日期价</th>
+                    <th>原油价</th>
+                    <th>煤炭价</th>
+                    <th>当日计算期价</th>
+                </tr>
+            </thead>
+            <tbody id="historyBody"></tbody>
+        </table>
+
+        <!-- 七日预测表格 -->
+        <div class="title-line">📈 未来7天预测结果</div>
+        <table>
+            <thead>
+                <tr>
+                    <th>预测日期</th>
+                    <th>预测期货价格</th>
+                </tr>
+            </thead>
+            <tbody id="forecastBody">
+                <tr><td colspan="2">请先录入数据并点击生成预测</td></tr>
+            </tbody>
+        </table>
+    </div>
+
+    <script>
+        // 公式参数
+        const A = 156.8819;
+        const b1 = 0.1237;
+        const b2 = 0.8487;
+        const b3 = -0.044;
+        const b4 = 1.165;
+
+        // 读取本地历史数据
+        let history = [];
+        try {
+            history = JSON.parse(localStorage.getItem("futureData")) || [];
+        } catch (e) {
+            console.log("无法读取本地存储，使用空数据");
+            history = [];
+        }
+
+        // 页面加载渲染
+        window.onload = function(){
+            renderHistory();
+        }
+
+        // 单条添加数据
+        function addData(){
+            let date = document.getElementById("date").value.trim();
+            let nowP = parseFloat(document.getElementById("priceNow").value) || 0;
+            let lastF = parseFloat(document.getElementById("priceFutureLast").value) || 0;
+            let oil = parseFloat(document.getElementById("oilPrice").value) || 0;
+            let coal = parseFloat(document.getElementById("coalPrice").value) || 0;
+
+            if(!date){
+                alert("请填写日期");
+                return;
+            }
+
+            let futurePrice = A + b1 * nowP + b2 * lastF + b3 * coal + b4 * oil;
+            futurePrice = futurePrice.toFixed(2);
+
+            history.push({
+                date,
+                nowP,
+                lastF,
+                oil,
+                coal,
+                futurePrice
+            });
+            saveHistory();
+            renderHistory();
+            alert("数据添加成功！");
+        }
+
+        // CSV文件导入
+        function importCSV(){
+            const fileInput = document.getElementById("csvFile");
+            const file = fileInput.files[0];
+            if(!file){
+                alert("请先选择一个CSV文件");
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = function(e){
+                const text = e.target.result;
+                const lines = text.split(/\r?\n/);
+                let successCount = 0;
+                let failCount = 0;
+
+                for(let i=0; i<lines.length; i++){
+                    let line = lines[i].trim();
+                    if(!line) continue;
+
+                    // 跳过表头（第一行如果是文字就自动跳过）
+                    if(i === 0 && isNaN(parseFloat(line.split(",")[1]))){
+                        continue;
+                    }
+
+                    const parts = line.split(",");
+                    if(parts.length < 5){
+                        failCount++;
+                        continue;
+                    }
+
+                    const date = parts[0].trim();
+                    const nowP = parseFloat(parts[1]) || 0;
+                    const lastF = parseFloat(parts[2]) || 0;
+                    const oil = parseFloat(parts[3]) || 0;
+                    const coal = parseFloat(parts[4]) || 0;
+
+                    const futurePrice = A + b1 * nowP + b2 * lastF + b3 * coal + b4 * oil;
+                    const futurePriceFixed = futurePrice.toFixed(2);
+
+                    history.push({
+                        date,
+                        nowP,
+                        lastF,
+                        oil,
+                        coal,
+                        futurePrice: futurePriceFixed
+                    });
+                    successCount++;
+                }
+
+                saveHistory();
+                renderHistory();
+                alert(`文件导入完成：成功${successCount}条，失败${failCount}条`);
+                fileInput.value = "";
+            };
+            reader.readAsText(file);
+        }
+
+        // 保存到本地存储
+        function saveHistory(){
+            try {
+                localStorage.setItem("futureData", JSON.stringify(history));
+            } catch (e) {
+                alert("本地存储保存失败，数据仅在本次打开期间有效");
+            }
+        }
+
+        // 渲染历史表格
+        function renderHistory(){
+            let html = "";
+            history.forEach(item=>{
+                html += `
+                <tr>
+                    <td>${item.date}</td>
+                    <td>${item.nowP}</td>
+                    <td>${item.lastF}</td>
+                    <td>${item.oil}</td>
+                    <td>${item.coal}</td>
+                    <td>${item.futurePrice}</td>
+                </tr>
+                `;
+            });
+            document.getElementById("historyBody").innerHTML = html;
+        }
+
+        // 生成未来7天迭代预测
+        function calcForecast(){
+            if(history.length === 0){
+                alert("请先录入至少一条历史数据");
+                return;
+            }
+            let last = history[history.length - 1];
+            let baseDate = new Date(last.date.replace(/\//g, '-'));
+            let nowP = last.nowP;
+            let lastF = parseFloat(last.futurePrice);
+            let oil = last.oil;
+            let coal = last.coal;
+
+            let foreHtml = "";
+            for(let i=1; i<=7; i++){
+                baseDate.setDate(baseDate.getDate() + 1);
+                let dStr = baseDate.toISOString().split("T")[0];
+                let fPrice = A + b1 * nowP + b2 * lastF + b3 * coal + b4 * oil;
+                fPrice = parseFloat(fPrice.toFixed(2));
+
+                foreHtml += `
+                <tr>
+                    <td>${dStr}</td>
+                    <td>${fPrice}</td>
+                </tr>
+                `;
+                lastF = fPrice;
+            }
+            document.getElementById("forecastBody").innerHTML = foreHtml;
+        }
+
+        // 清空所有数据
+        function clearAll(){
+            if(confirm("确定要清空所有历史数据吗？不可恢复！")){
+                history = [];
+                try {
+                    localStorage.removeItem("futureData");
+                } catch (e) {}
+                renderHistory();
+                document.getElementById("forecastBody").innerHTML = `<tr><td colspan="2">请先录入数据并点击生成预测</td></tr>`;
+            }
+        }
+    </script>
+</body>
+</html>

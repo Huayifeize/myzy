@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>聚烯烃含权贸易测算系统</title>
+<script src="config.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;font-family:"Microsoft Yahei",Arial,sans-serif;}
+body{background-color:#e6f4ff;padding:20px 0;}
+.container{max-width:600px;margin:0 auto;background:#fff;border-radius:12px;box-shadow:0 2px 12px rgba(0,0,0,0.06);padding:30px;}
+.header{text-align:center;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e0edff;}
+.header h2{color:#0f5fa8;font-size:22px;margin-bottom:6px;}
+.form-group{margin-bottom:18px;}
+.form-label{display:block;margin-bottom:6px;color:#0f5fa8;font-weight:500;font-size:15px;}
+.form-input,.form-select{width:100%;padding:12px 14px;border:1px solid #c9dfff;border-radius:8px;font-size:15px;color:#226;transition:border-color .3s,box-shadow .3s;}
+.form-input:focus,.form-select:focus{outline:none;border-color:#4096ff;box-shadow:0 0 0 3px rgba(64,150,255,0.12);}
+.btn-calculate{width:100%;padding:14px;background-color:#4096ff;color:#fff;border:none;border-radius:8px;font-size:16px;font-weight:500;cursor:pointer;transition:background-color .3s;margin-bottom:18px;}
+.btn-calculate:hover{background-color:#2b7cd3;}
+.distance-info{background-color:#f0f7ff;color:#0f5fa8;padding:14px;border-radius:8px;margin-bottom:18px;font-size:15px;display:none;border:1px solid #d4e8ff;}
+.result-table{width:100%;border-collapse:collapse;display:none;background:#fff;border-radius:8px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.05);}
+.result-table th{background-color:#f5faff;padding:12px 14px;text-align:left;color:#0f5fa8;font-weight:500;font-size:14px;border-bottom:1px solid #e0edff;}
+.result-table td{padding:12px 14px;color:#226;font-size:14px;border-bottom:1px solid #f0f7ff;}
+.result-table tr:last-child td{border-bottom:none;}
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="header">
+    <h2>聚烯烃含权贸易测算系统</h2>
+    <p>输入收货地址，自动测算最优价格方案</p>
+  </div>
+
+  <div class="form-group">
+    <label class="form-label">收货详细地址</label>
+    <input type="text" id="userAddr" class="form-input" placeholder="例如：山东省青岛市即墨区鹤山路">
+  </div>
+
+  <div class="form-group">
+    <label class="form-label">产品类型</label>
+    <select id="productType" class="form-select">
+      <option value="L">L产品</option>
+      <option value="PP">PP产品</option>
+    </select>
+  </div>
+
+  <button onclick="startCalc()" class="btn-calculate">一键自动测算</button>
+  <div id="distanceInfo" class="distance-info"></div>
+
+  <table class="result-table" id="resTable">
+    <thead>
+      <tr><th>测算指标</th><th>结果</th></tr>
+    </thead>
+    <tbody id="resBody"></tbody>
+  </table>
+</div>
+
+<script>
+const AMAP_KEY="66e2c56caf8dae1dd2c7e36ffe0162b5";
+
+// 记录相关函数（本地存储，无文件读写）
+function getRecords(){
+  let records = localStorage.getItem("calcRecords");
+  return records ? JSON.parse(records) : [];
+}
+function saveRecord(addr, product, distance, result){
+  let records = getRecords();
+  records.unshift({
+    time: new Date().toLocaleString(),
+    address: addr,
+    product: product,
+    distance: distance.toFixed(2),
+    pointPrice: result["推荐点价价格"],
+    exercisePrice: result["行权价格"],
+    closeMin: result["推荐平仓价格下限"]
+  });
+  if(records.length > 100) records.pop();
+  localStorage.setItem("calcRecords", JSON.stringify(records));
+}
+
+async function addrToLatLng(addr){
+  let url=`https://restapi.amap.com/v3/geocode/geo?address=${encodeURIComponent(addr)}&key=${AMAP_KEY}&output=json`;
+  let res=await fetch(url);
+  let json=await res.json();
+  if(!json.geocodes||!json.geocodes.length)throw"地址解析失败，请输入更详细地址";
+  let [lng,lat]=json.geocodes[0].location.split(",").map(Number);
+  return {lat,lng};
+}
+async function startCalc(){
+  let addr=document.getElementById("userAddr").value.trim();
+  let pro=document.getElementById("productType").value;
+  if(!addr){alert("请输入收货地址");return;}
+  try{
+    let userLL=await addrToLatLng(addr);
+    let km=getLineDistance(userLL.lat,userLL.lng,STORE_LL.lat,STORE_LL.lng);
+    document.getElementById("distanceInfo").innerText=`📍 收货地址 ↔ 北京燕山仓库 直线距离：${km.toFixed(2)} 公里`;
+    document.getElementById("distanceInfo").style.display="block";
+    let result=calculate(km,pro);
+    let html="";
+    for(let k in result)html+=`<tr><td>${k}</td><td>${result[k]}</td></tr>`;
+    document.getElementById("resBody").innerHTML=html;
+    document.getElementById("resTable").style.display="table";
+
+    // 保存记录到浏览器本地
+    saveRecord(addr, pro, km, result);
+  }catch(e){alert("测算出错："+(e.message||e));}
+}
+</script>
+</body>
+</html>

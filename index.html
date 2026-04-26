@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>命运之眼</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            --bg-body: #f1f5f9; --bg-card: #ffffff; --bg-sidebar: #0f172a;
+            --text-main: #1e293b; --text-muted: #64748b; --primary: #2563eb;
+            --border: #e2e8f0; --accent-green: #10b981; --accent-red: #ef4444;
+            --sidebar-width: 260px; --header-height: 64px;
+            --shadow: 0 10px 15px -3px rgba(0,0,0,0.1);
+        }
+        [data-theme="dark"] {
+            --bg-body: #020617; --bg-card: #1e293b; --bg-sidebar: #020617;
+            --text-main: #f8fafc; --text-muted: #94a3b8; --border: #334155;
+        }
+        * { box-sizing: border-box; transition: all 0.2s ease; }
+        body { font-family: 'Inter', system-ui, sans-serif; margin: 0; background: var(--bg-body); color: var(--text-main); display: flex; height: 100vh; overflow: hidden; }
+
+        /* 侧边栏 */
+        aside { width: var(--sidebar-width); background: var(--bg-sidebar); color: white; display: flex; flex-direction: column; padding: 24px 16px; flex-shrink: 0; z-index: 100; }
+        .nav-link { padding: 12px 16px; border-radius: 12px; cursor: pointer; color: #94a3b8; display: flex; align-items: center; gap: 12px; margin-bottom: 8px; font-size: 14px; }
+        .nav-link.active { background: var(--primary); color: white; box-shadow: 0 4px 12px rgba(37,99,235,0.3); }
+        .nav-link:hover:not(.active) { background: rgba(255,255,255,0.1); color: white; }
+
+        /* 布局 */
+        header { position: fixed; top: 0; right: 0; left: var(--sidebar-width); height: var(--header-height); background: var(--bg-card); border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; padding: 0 32px; z-index: 90; }
+        main { flex: 1; margin-top: var(--header-height); padding: 32px; overflow-y: auto; }
+        .page { display: none; max-width: 1200px; margin: 0 auto; animation: slideUp 0.3s ease; }
+        .page.active { display: block; }
+        @keyframes slideUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+        .card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 20px; padding: 24px; box-shadow: var(--shadow); margin-bottom: 24px; }
+        .btn { padding: 12px 24px; border-radius: 12px; border: none; cursor: pointer; font-weight: 600; display: inline-flex; align-items: center; gap: 8px; }
+        .btn-primary { background: var(--primary); color: white; }
+        
+        table { width: 100%; border-collapse: collapse; }
+        th { text-align: left; padding: 16px; border-bottom: 2px solid var(--border); color: var(--text-muted); font-size: 12px; }
+        td { padding: 16px; border-bottom: 1px solid var(--border); font-size: 14px; }
+        
+        /* 搜索框高亮动画 */
+        .highlight-row { background: rgba(37,99,235,0.05); }
+
+        /* 产品卡片特有样式 */
+.product-card {
+    cursor: pointer;
+    border: 1px solid transparent;
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.3s ease;
+}
+
+.product-card:hover {
+    transform: translateY(-8px);
+    border-color: var(--primary);
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+}
+
+.product-img-wrapper {
+    background: #f8fafc;
+    border-radius: 12px;
+    overflow: hidden;
+}
+
+.view-detail:hover {
+    text-decoration: underline;
+}
+
+/* 模态框背景遮罩 */
+.modal-overlay {
+    position: fixed;
+    top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(15, 23, 42, 0.6); 
+    backdrop-filter: blur(4px);
+    display: none; /* 默认隐藏 */
+    align-items: center; justify-content: center;
+    z-index: 1000;
+}
+.modal-overlay.active { display: flex; } /* 激活时显示 */
+
+.modal-card {
+    background: var(--bg-card);
+    width: 90%; max-width: 500px;
+    border-radius: 24px; padding: 32px;
+    box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25);
+}
+.modal-overlay.active .modal-card { transform: translateY(0); }
+
+.modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
+.close-btn { font-size: 28px; cursor: pointer; color: var(--text-muted); }
+.close-btn:hover { color: var(--accent-red); }
+
+.detail-table { width: 100%; border-collapse: collapse; }
+.detail-table td { padding: 12px; border-bottom: 1px solid var(--border); font-size: 14px; }
+.detail-table td:first-child { color: var(--text-muted); font-weight: 500; }
+.detail-table td:last-child { text-align: right; font-weight: 600; }
+
+    </style>
+</head>
+
+<body data-theme="light">
+
+    <aside>
+
+<div style="display: flex; align-items: center; gap: 12px; margin-bottom: 40px;">
+    
+    <div style="font-size: 24px; font-weight: 800; color: var(--primary); letter-spacing: 1px;">命运之眼</div>
+    <img src="命运之眼.jpg" alt="Logo" style="width: 40px; height: 40px; border-radius: 8px; object-fit: cover; box-shadow: 0 0 10px rgba(37,99,235,0.5);">
+</div>
+        <nav id="sidebar-nav">
+           <div class="nav-link active" > <span>使用说明</span> </div>
+            <div class="nav-link" onclick="navTo('products', this)"><span>产品展示</span></div>
+              <div class="nav-link" onclick="window.location.href='榜.html'"><span>期货预测</span></div>
+              
+             <div class="nav-link" onclick="window.location.href='测算模型.html'"> <span>客户窗口</span> </div>
+             <div class="nav-link" onclick="window.location.href='enterprise.html'"> <span>企业窗口</span> </div>
+            <div class="nav-link" onclick="navTo('calc', this)"><span>电子合同</span></div>
+           
+            <div class="nav-link" onclick="window.location.href='https://zh6yj3cv3d.coze.site/', '_blank'"><span>风险分析</span></div>
+            <div class="nav-link" onclick="window.location.href='records.html'"> <span>数据仓池</span> </div>
+        </nav>
+        <div style="margin-top: auto; padding-top: 20px; border-top: 1px solid rgba(255,255,255,0.1);">
+            <div class="nav-link" onclick="toggleTheme()">🌓 模式切换</div>
+        </div>
+    </aside>
+
+    <header>
+        <div style="font-weight: 600;">当前页面：<span id="curPage" style="color: var(--primary);">使用说明</span></div>
+        <div style="display:flex; align-items:center; gap:20px;">
+            <input id="topSearch" type="text" placeholder="输入单号或关键字搜寻历史..." 
+                   style="padding:10px 16px; border-radius:10px; border:1px solid var(--border); background:var(--bg-body); width: 280px;" 
+                   oninput="searchHistory()">
+            <div style="font-size: 14px; color: var(--text-muted); font-weight: 500;">Admin</div>
+        </div>
+    </header>
+
+    <main>
+        <section id="home" class="page active">
+    <div class="divine-overlay">
+        <img src="平台使用说明.png" alt=""width="788"height="1116">
+    </div>
+</section>
+
+        <section id="products" class="page">
+    <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 24px;">
+        <div class="card product-card" onclick="openProduct('PP-拉丝级 T30S', 8420)">
+            <div class="product-img-wrapper">
+                <img src="pp_product.png" alt="PP" style="width:100%; height:180px; object-fit:cover; border-radius:12px;">
+            </div>
+            <div style="margin-top:16px;">
+                <div style="font-weight:700; font-size:16px;">聚丙烯 PP (T30S)</div>
+                <div class="view-detail" style="color:var(--primary); font-size:13px; margin-top:8px; font-weight:500;">查看详情 →</div>
+            </div>
+        </div>
+
+        <div class="card product-card" onclick="openProduct('PE-膜级 LDPE', 9250)">
+            <div class="product-img-wrapper">
+                <img src="pe_product.png" alt="PE" style="width:100%; height:180px; object-fit:cover; border-radius:12px;">
+            </div>
+            <div style="margin-top:16px;">
+                <div style="font-weight:700; font-size:16px;">聚乙烯 LDPE (2426H)</div>
+                <div class="view-detail" style="color:var(--primary); font-size:13px; margin-top:8px; font-weight:500;">查看详情 →</div>
+            </div>
+        </div>
+    </div>
+</section>
+<!-- 保留一个电子合同按钮 -->
+        <section id="calc" class="page">
+    <div class="card" style="text-align:center;">
+        <h3>电子合同</h3>
+        <button class="btn btn-primary" onclick="downloadFile()">📄 下载报价文件</button>
+    </div>
+    <img src="contract(1).png" alt=""width="788"height="1116">
+    <img src="contract(2).png" alt=""width="788"height="1116">
+    <img src="contract(3).png" alt=""width="788"height="1116">
+    <img src="contract(4).png" alt=""width="788"height="1116">
+</section>
+
+
+    </main>
+
+    <script>
+        // 小卡片
+        // 产品详细介绍数据
+const productDetails = {
+    'PP-拉丝级 T30S': {
+        title: '聚丙烯 (PP)',
+        content: `广泛应用于包装、纤维、汽车、家电等日用品以及工业品等领域的生产，近几年在医疗领域也有较普遍的应用。<br><br><b>核心类别：</b><br>• 纤维料、注塑料<br>• 薄膜料、管材料、透明料等。`
+    },
+    'PE-膜级 LDPE': {
+        title: '聚乙烯 (PE)',
+        content: `<b>高密度聚乙烯：</b>应用于薄膜料、注塑料、管材料、中空料；<br><br><b>低密度聚乙烯：</b>应用于包装膜，注塑制品、涂覆、电线电缆等领域，涂覆多应用于一次性纸杯、方便面桶等；<br><br><b>线性低密度聚乙烯：</b>以生产农膜、包装膜等薄膜制品为主，另外也可应用在生产注塑、电缆等产品，以及大型水塔、儿童爬梯等滚塑产品。`
+    }
+};
+
+// 修改原有的 openProduct 函数
+function openProduct(name, price) {
+    const modal = document.getElementById('productModal');
+    const title = document.getElementById('modalTitle');
+    const content = document.getElementById('modalContent');
+
+    if (productDetails[name]) {
+        title.innerText = productDetails[name].title;
+        content.innerHTML = productDetails[name].content;
+        modal.classList.add('active');
+    }
+    
+    // 同步更新计算器数据
+    const baseInput = document.getElementById('i_base');
+    if (baseInput) {
+        baseInput.value = price;
+        runCalc();
+    }
+}
+
+// 关闭模态框
+function closeModal() {
+    document.getElementById('productModal').classList.remove('active');
+}
+// 小卡片之上
+        const state = {
+            history: JSON.parse(localStorage.getItem('wb_data_v6') || '[]'),
+            chart: null,
+            basePrice: 8420
+        };
+
+        // 导航切换
+        function navTo(pageId, el) {
+            document.querySelectorAll('.nav-link').forEach(n => n.classList.remove('active'));
+            if(el) el.classList.add('active');
+            
+            document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+            document.getElementById(pageId).classList.add('active');
+            document.getElementById('curPage').innerText = el ? el.innerText.trim() : pageId;
+        }
+
+        // 核心计算
+        function runCalc() {
+            const base = parseFloat(document.getElementById('i_base').value) || 0;
+            const lambda = parseFloat(document.getElementById('i_risk').value) || 0;
+            const final = (base + 220) * 1.13 + (base * lambda * 4.2 * 0.000056);
+            document.getElementById('res_price').innerText = `¥ ${final.toLocaleString('zh-CN', {minimumFractionDigits: 2})}`;
+            document.getElementById('live-lambda').innerText = lambda.toFixed(2);
+        }
+
+        // --- 核心修复：搜索框功能 ---
+        function searchHistory() {
+            const inputVal = document.getElementById('topSearch').value.toLowerCase();
+            
+            // 只要输入框有东西，立刻自动切到历史页面，给用户反馈
+            if (inputVal.length > 0) {
+                const historyBtn = document.querySelectorAll('.nav-link')[3];
+                if (!document.getElementById('history').classList.contains('active')) {
+                    navTo('history', historyBtn);
+                }
+            }
+
+            const rows = document.querySelectorAll('#histBody tr');
+            rows.forEach(row => {
+                const text = row.innerText.toLowerCase();
+                if (text.includes(inputVal)) {
+                    row.style.display = '';
+                    if(inputVal.length > 0) row.classList.add('highlight-row');
+                } else {
+                    row.style.display = 'none';
+                    row.classList.remove('highlight-row');
+                }
+            });
+        }
+
+        // 持久化
+        function saveRecord() {
+            const rec = {
+                id: 'WB' + Date.now().toString().slice(-4),
+                time: new Date().toLocaleTimeString(),
+                base: document.getElementById('i_base').value,
+                final: document.getElementById('res_price').innerText,
+                risk: document.getElementById('i_risk').value
+            };
+            state.history.unshift(rec);
+            localStorage.setItem('wb_data_v6', JSON.stringify(state.history));
+            renderHistory();
+            alert("决策已存入本地审计日志");
+        }
+
+        function renderHistory() {
+            
+            const b = document.getElementById('histBody');
+            if(!b) return;
+            b.innerHTML = state.history.map(i => `
+                <tr>
+                    <td style="font-weight:bold; color:var(--primary);">${i.id}</td>
+                    <td>${i.time}</td>
+                    <td>¥${i.base}</td>
+                    <td style="font-weight:700;">${i.final}</td>
+                    <td><span style="background:var(--bg-body); padding:4px 8px; border-radius:6px;">λ ${i.risk}</span></td>
+                    <td><button onclick="deleteRec('${i.id}')" style="color:var(--accent-red); border:none; background:none; cursor:pointer;">撤销</button></td>
+                </tr>
+            `).join('');
+            searchHistory(); // 保持过滤状态
+        }
+
+        function deleteRec(id) {
+            state.history = state.history.filter(i => i.id !== id);
+            localStorage.setItem('wb_data_v6', JSON.stringify(state.history));
+            renderHistory();
+        }
+
+        const productData = {
+    'PP-拉丝级 T30S': {
+        title: '聚丙烯 (PP)',
+        desc: '广泛应用于包装、纤维、汽车、家电等日用品以及工业品等领域的生产，近几年在医疗领域也有较普遍的应用。包括：纤维料、注塑料、薄膜料、管材料、透明料等。'
+    },
+    'PE-膜级 LDPE': {
+        title: '聚乙烯 (PE)',
+        desc: '<b>高密度聚乙烯：</b>应用于薄膜料、注塑料、管材料、中空料；<br><b>低密度聚乙烯：</b>应用于包装膜，注塑制品、涂覆、电线电缆等领域，涂覆多应用于一次性纸杯、方便面桶等；<br><b>线性低密度聚乙烯：</b>以生产农膜、包装膜等薄膜制品为主，另外也可应用在生产注塑、电缆等产品，以及大型水塔、儿童爬梯等滚塑产品。'
+    }
+};
+
+function openProduct(name, price) {
+    const info = productData[name];
+    if (info) {
+        document.getElementById('modalTitle').innerText = info.title;
+        document.getElementById('modalContent').innerHTML = info.desc;
+        document.getElementById('productModal').classList.add('active');
+    }
+}
+
+function closeModal() {
+    document.getElementById('productModal').classList.remove('active');
+}
+
+        function toggleTheme() {
+            const b = document.body;
+            b.setAttribute('data-theme', b.getAttribute('data-theme') === 'dark' ? 'light' : 'dark');
+        }
+
+        // 图表初始化
+        function initChart() {
+            const ctx = document.getElementById('proChart').getContext('2d');
+            state.chart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: ['09:00', '10:00', '11:00', '13:00', '14:00', '15:00'],
+                    datasets: [{
+                        label: 'PP 主力合约行情',
+                        data: [8380, 8410, 8395, 8420, 8415, 8420],
+                        borderColor: '#2563eb',
+                        tension: 0.4,
+                        fill: true,
+                        backgroundColor: 'rgba(37,99,235,0.05)'
+                    }]
+                },
+                options: { responsive: true, maintainAspectRatio: false }
+            });
+
+            setInterval(() => {
+                const last = state.chart.data.datasets[0].data.slice(-1)[0];
+                const newVal = last + (Math.random() - 0.5) * 20;
+                const time = new Date().toLocaleTimeString().slice(0, 5);
+                
+                state.chart.data.labels.push(time);
+                state.chart.data.datasets[0].data.push(newVal);
+                if(state.chart.data.labels.length > 12) {
+                    state.chart.data.labels.shift();
+                    state.chart.data.datasets[0].data.shift();
+                }
+                state.chart.update('none');
+                document.getElementById('live-price').innerText = `¥ ${newVal.toLocaleString('zh-CN', {minimumFractionDigits: 2})}`;
+            }, 3000);
+        }
+
+        function downloadFile() {
+    const link = document.createElement('a');
+    link.href = "contract.pdf";
+    link.download = "contract.pdf";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+}
+        window.onload = () => {
+            initChart();
+            renderHistory();
+            runCalc();
+            document.querySelectorAll('input').forEach(i => i.addEventListener('input', runCalc));
+        };
+    </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+
+    <div id="productModal" class="modal-overlay" onclick="closeModal()">
+    <div class="modal-card" onclick="event.stopPropagation()">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+            <h3 id="modalTitle" style="margin:0; color:var(--primary);">产品详情</h3>
+            <span style="cursor:pointer; font-size:24px;" onclick="closeModal()">&times;</span>
+        </div>
+        <div id="modalContent" style="line-height:1.6; font-size:14px; color:var(--text-main);"></div>
+        <button class="btn btn-primary" style="width:100%; margin-top:20px; justify-content:center;" onclick="closeModal()">了解了</button>
+    </div>
+</div>
+</body>
+</html>

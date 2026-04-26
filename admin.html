@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>系统参数配置后台</title>
+<script src="config.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;font-family:"Microsoft Yahei",Arial,sans-serif;}
+body{background-color:#e6f4ff;padding:20px 0;}
+.container{max-width:600px;margin:0 auto;background:#fff;border-radius:12px;box-shadow:0 2px 12px rgba(0,0,0,0.06);padding:30px;}
+.header{text-align:center;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e0edff;}
+.header h2{color:#0f5fa8;font-size:22px;}
+.pwd-input{width:100%;padding:12px 14px;border:1px solid #c9dfff;border-radius:8px;font-size:15px;margin-bottom:20px;text-align:center;}
+.form-group{margin-bottom:15px;}
+.form-label{display:block;margin-bottom:6px;color:#0f5fa8;font-size:14px;font-weight:500;}
+.form-input{width:100%;padding:10px 12px;border:1px solid #c9dfff;border-radius:6px;font-size:14px;color:#226;}
+.form-input:focus{outline:none;border-color:#4096ff;}
+.save-btn{width:100%;padding:12px;background:#4096ff;color:#fff;border:none;border-radius:8px;font-size:16px;font-weight:500;cursor:pointer;margin-top:20px;}
+.save-btn:hover{background:#2b7cd3;}
+.content-box{display:none;}
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="header">
+    <h2>系统核心参数配置</h2>
+  </div>
+
+  <input type="password" id="pwd" class="pwd-input" placeholder="请输入管理员密码（默认：123456）">
+
+  <div id="content" class="content-box">
+    <div class="form-group"><label class="form-label">碳传导指数</label><input id="d3" class="form-input"></div>
+    <div class="form-group"><label class="form-label">期货均价</label><input id="d4" class="form-input"></div>
+    <div class="form-group"><label class="form-label">碳配额价格</label><input id="d5" class="form-input"></div>
+    <div class="form-group"><label class="form-label">免费碳配额比例</label><input id="d6" class="form-input"></div>
+  
+
+    <button onclick="save()" class="save-btn">保存参数配置</button>
+  </div>
+</div>
+
+<script>
+function check(){
+  if(document.getElementById("pwd").value=="123456"){
+    document.getElementById("content").style.display="block";
+    load();
+  }
+}
+document.getElementById("pwd").addEventListener("input",check);
+function load(){
+  let c=tradeConfig;
+  document.getElementById("d1").value=c.distBase;
+  document.getElementById("d2").value=c.distOffset;
+  document.getElementById("d3").value=c.carbonConduct;
+  document.getElementById("d4").value=c.avgFuturesPrice;
+  document.getElementById("d5").value=c.carbonQuotaPrice;
+  document.getElementById("d6").value=c.freeCarbonRatio;
+  document.getElementById("d7").value=c.optionFee;
+}
+function save(){
+  tradeConfig.distBase=Number(document.getElementById("d1").value);
+  tradeConfig.distOffset=Number(document.getElementById("d2").value);
+  tradeConfig.carbonConduct=Number(document.getElementById("d3").value);
+  tradeConfig.avgFuturesPrice=Number(document.getElementById("d4").value);
+  tradeConfig.carbonQuotaPrice=Number(document.getElementById("d5").value);
+  tradeConfig.freeCarbonRatio=Number(document.getElementById("d6").value);
+  tradeConfig.optionFee=Number(document.getElementById("d7").value);
+  localStorage.setItem("tradeConfig",JSON.stringify(tradeConfig));
+  alert("✅ 参数配置保存成功！");
+}
+</script>
+</body>
+</html>
